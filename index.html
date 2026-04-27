@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>L-Game</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="app">
+        <header>
+            <h1>L-Game</h1>
+            <p class="subtitle">A two-player abstract strategy game by Edward de Bono</p>
+        </header>
+
+        <main>
+            <div id="game-container">
+                <div id="player-info-left" class="player-info">
+                    <div class="player-label" id="player1-label">
+                        <span class="piece-icon l-piece-p1"></span>
+                        <span>Player 1</span>
+                    </div>
+                    <div id="p1-status" class="player-status"></div>
+                </div>
+
+                <div id="board-wrapper">
+                    <div id="board"></div>
+                </div>
+
+                <div id="player-info-right" class="player-info">
+                    <div class="player-label" id="player2-label">
+                        <span class="piece-icon l-piece-p2"></span>
+                        <span>Player 2</span>
+                    </div>
+                    <div id="p2-status" class="player-status"></div>
+                </div>
+            </div>
+
+            <div id="controls">
+                <div id="mode-group">
+                    <button id="mode-btn" class="mode-toggle">vs AI</button>
+                    <div id="first-move-group" class="hidden">
+                        <button id="first-btn" class="first-option active">You 1st</button>
+                        <button id="second-btn" class="first-option">AI 1st</button>
+                    </div>
+                    <div id="difficulty-group" class="hidden">
+                        <button id="easy-btn" class="diff-option">Easy</button>
+                        <button id="medium-btn" class="diff-option active">Medium</button>
+                        <button id="hard-btn" class="diff-option">Hard</button>
+                    </div>
+                </div>
+                <div id="turn-info">
+                    <span id="turn-text">Player 1's turn</span>
+                    <span id="phase-text">Move your L-piece</span>
+                </div>
+                <button id="skip-neutral-btn" class="hidden">Skip Neutral Move</button>
+            </div>
+
+            <div id="game-result" class="hidden">
+                <h2 id="winner-text"></h2>
+                <button id="new-game-btn">New Game</button>
+            </div>
+
+            <div id="messages"></div>
+        </main>
+
+        <footer>
+            <p>Hover empty squares to preview L-piece placements, then click to place. Then optionally move a neutral piece.</p>
+        </footer>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

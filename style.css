@@ -1,0 +1,545 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+    background: #1a1a2e;
+    color: #e0e0e0;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+#app {
+    max-width: 800px;
+    width: 100%;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+}
+
+header {
+    text-align: center;
+}
+
+header h1 {
+    font-size: 2rem;
+    color: #e94560;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+}
+
+.subtitle {
+    font-size: 0.85rem;
+    color: #888;
+    margin-top: 4px;
+}
+
+/* Game Container */
+#game-container {
+    display: flex;
+    align-items: center;
+    gap: 30px;
+}
+
+/* Player Info */
+.player-info {
+    width: 120px;
+    text-align: center;
+}
+
+.player-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+    font-size: 0.95rem;
+    padding: 8px 12px;
+    border-radius: 8px;
+    background: #16213e;
+    margin-bottom: 8px;
+}
+
+.player-label.active {
+    background: #0f3460;
+    box-shadow: 0 0 12px rgba(233, 69, 96, 0.3);
+}
+
+.player-status {
+    font-size: 0.8rem;
+    color: #888;
+    min-height: 20px;
+}
+
+.piece-icon {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border-radius: 3px;
+    flex-shrink: 0;
+}
+
+.l-piece-p1 {
+    background: #e94560;
+}
+
+.l-piece-p2 {
+    background: #0f8a5f;
+}
+
+/* Board */
+#board-wrapper {
+    position: relative;
+}
+
+#board {
+    display: grid;
+    grid-template-columns: repeat(4, 90px);
+    grid-template-rows: repeat(4, 90px);
+    gap: 3px;
+    background: #2d2d44;
+    padding: 8px;
+    border-radius: 12px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+}
+
+.cell {
+    width: 90px;
+    height: 90px;
+    background: #16213e;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: default;
+    position: relative;
+    transition: background 0.15s ease;
+}
+
+.cell:hover {
+    background: #1a2744;
+}
+
+/* Piece rendering */
+.cell .piece {
+    width: 100%;
+    height: 100%;
+    border-radius: 6px;
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 2;
+}
+
+.cell .piece.piece-p1 {
+    background: #e94560;
+    box-shadow: inset 0 -3px 0 rgba(0,0,0,0.2), inset 0 2px 0 rgba(255,255,255,0.15);
+}
+
+.cell .piece.piece-p2 {
+    background: #0f8a5f;
+    box-shadow: inset 0 -3px 0 rgba(0,0,0,0.2), inset 0 2px 0 rgba(255,255,255,0.15);
+}
+
+.cell .piece.piece-neutral {
+    background: #e9c46a;
+    border-radius: 50%;
+    width: 60%;
+    height: 60%;
+    top: 20%;
+    left: 20%;
+    box-shadow: inset 0 -3px 0 rgba(0,0,0,0.2), inset 0 2px 0 rgba(255,255,255,0.2);
+}
+
+/* Hovered placement — full L-piece shape preview */
+.cell.hovered-placement {
+    cursor: pointer;
+}
+
+/* Hide existing pieces under the hover preview so only the
+   semi-transparent destination shape is visible */
+.cell.hovered-placement .piece {
+    display: none;
+}
+
+.cell.hovered-placement .hover-piece {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    border-radius: 6px;
+    z-index: 3;
+    animation: fade-in 0.12s ease;
+}
+
+.cell.hovered-placement .hover-piece.hover-p1 {
+    background: rgba(233, 69, 96, 0.55);
+    box-shadow: inset 0 -3px 0 rgba(0,0,0,0.2), inset 0 2px 0 rgba(255,255,255,0.1);
+}
+
+.cell.hovered-placement .hover-piece.hover-p2 {
+    background: rgba(15, 138, 95, 0.55);
+    box-shadow: inset 0 -3px 0 rgba(0,0,0,0.2), inset 0 2px 0 rgba(255,255,255,0.1);
+}
+
+@keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+/* ─── Move Animation ──────────────────────────────────────────── */
+
+/* Ghost piece at old position fading out */
+.cell .piece-ghost {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 4;
+    border-radius: 6px;
+    animation: ghost-fade 0.7s ease forwards;
+    pointer-events: none;
+}
+
+.cell .piece-ghost.ghost-p1 {
+    background: rgba(233, 69, 96, 0.65);
+    box-shadow: inset 0 -3px 0 rgba(0,0,0,0.2);
+}
+
+.cell .piece-ghost.ghost-p2 {
+    background: rgba(15, 138, 95, 0.65);
+    box-shadow: inset 0 -3px 0 rgba(0,0,0,0.2);
+}
+
+.cell .piece-ghost.ghost-neutral {
+    background: rgba(233, 196, 106, 0.65);
+    border-radius: 50%;
+    width: 60%;
+    height: 60%;
+    top: 20%;
+    left: 20%;
+}
+
+@keyframes ghost-fade {
+    0%   { opacity: 0.8; transform: scale(1); }
+    70%  { opacity: 0.5; transform: scale(0.9); }
+    100% { opacity: 0; transform: scale(0.7); }
+}
+
+/* Entering piece animation on new cells */
+.cell .piece.entering {
+    animation: piece-enter 0.55s ease;
+}
+
+@keyframes piece-enter {
+    0%   { opacity: 0; transform: scale(0.3); }
+    60%  { opacity: 1; transform: scale(1.08); }
+    100% { opacity: 1; transform: scale(1); }
+}
+
+.cell .piece-neutral.entering {
+    animation: neutral-enter 0.55s ease;
+}
+
+@keyframes neutral-enter {
+    0%   { opacity: 0; transform: translateY(-20px) scale(0.5); }
+    60%  { opacity: 1; transform: translateY(2px) scale(1.1); }
+    100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* Neutral piece clickable */
+.cell.clickable-neutral {
+    cursor: pointer;
+    box-shadow: 0 0 0 3px rgba(233, 196, 106, 0.6);
+    animation: pulse-neutral 1.5s ease-in-out infinite;
+}
+
+.cell.clickable-neutral:hover {
+    box-shadow: 0 0 0 3px rgba(233, 196, 106, 0.9);
+}
+
+@keyframes pulse-neutral {
+    0%, 100% { box-shadow: 0 0 0 3px rgba(233, 196, 106, 0.4); }
+    50% { box-shadow: 0 0 0 3px rgba(233, 196, 106, 0.8); }
+}
+
+/* Valid neutral destination */
+.cell.valid-neutral-dest {
+    cursor: pointer;
+    background: rgba(233, 196, 106, 0.15);
+}
+
+.cell.valid-neutral-dest:hover {
+    background: rgba(233, 196, 106, 0.3);
+}
+
+/* Neutral piece selected */
+.cell.selected-neutral {
+    box-shadow: 0 0 0 3px rgba(233, 196, 106, 1), 0 0 16px rgba(233, 196, 106, 0.4);
+}
+
+/* Current L-piece position */
+.cell.has-l-piece {
+    box-shadow: inset 0 0 0 2px rgba(255,255,255,0.3);
+}
+
+/* Game Result Banner (below board) */
+#game-result {
+    text-align: center;
+    padding: 20px 30px;
+    min-width: 280px;
+}
+
+#game-result.hidden {
+    display: none;
+}
+
+#game-result h2 {
+    font-size: 1.8rem;
+    margin-bottom: 16px;
+    letter-spacing: 1px;
+}
+
+#new-game-btn {
+    padding: 12px 32px;
+    font-size: 1.1rem;
+    font-weight: 600;
+    background: #e94560;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+#new-game-btn:hover {
+    background: #d63851;
+}
+
+/* Controls */
+#controls {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    min-height: 50px;
+}
+
+#mode-group {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+}
+
+#mode-btn {
+    padding: 8px 16px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    background: #2d2d44;
+    color: #888;
+    border: 1px solid #444;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+#mode-btn:hover {
+    background: #3d3d54;
+    color: #e0e0e0;
+}
+
+#mode-btn.active {
+    background: #0f3460;
+    border-color: #e94560;
+    color: #e94560;
+}
+
+/* First-move selection (You 1st / AI 1st) */
+#first-move-group {
+    display: flex;
+    gap: 4px;
+    transition: opacity 0.2s;
+}
+
+#first-move-group.hidden {
+    display: none;
+}
+
+.first-option {
+    padding: 3px 10px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    background: transparent;
+    color: #555;
+    border: 1px solid #333;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.first-option:hover {
+    color: #888;
+    border-color: #555;
+}
+
+.first-option.active {
+    background: #0f3460;
+    border-color: #e94560;
+    color: #e94560;
+}
+
+/* Difficulty selector */
+#difficulty-group {
+    display: flex;
+    gap: 4px;
+    margin-top: 3px;
+    justify-content: center;
+    transition: opacity 0.2s;
+}
+
+#difficulty-group.hidden {
+    display: none;
+}
+
+.diff-option {
+    padding: 3px 8px;
+    font-size: 0.65rem;
+    font-weight: 600;
+    background: transparent;
+    color: #555;
+    border: 1px solid #333;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    flex: 1;
+}
+
+.diff-option:hover {
+    color: #888;
+    border-color: #555;
+}
+
+.diff-option.active {
+    background: #1a2a1a;
+    border-color: #4ac28a;
+    color: #4ac28a;
+}
+
+#turn-info {
+    text-align: center;
+}
+
+#turn-text {
+    font-size: 1.1rem;
+    font-weight: 600;
+    display: block;
+}
+
+#phase-text {
+    font-size: 0.85rem;
+    color: #888;
+    display: block;
+    margin-top: 4px;
+}
+
+#skip-neutral-btn {
+    padding: 10px 24px;
+    font-size: 0.95rem;
+    font-weight: 500;
+    background: #2d2d44;
+    color: #e0e0e0;
+    border: 1px solid #444;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+#skip-neutral-btn:hover {
+    background: #3d3d54;
+}
+
+#skip-neutral-btn.hidden {
+    display: none;
+}
+
+/* Messages */
+#messages {
+    min-height: 30px;
+    text-align: center;
+    font-size: 0.9rem;
+    color: #aaa;
+}
+
+#messages .error {
+    color: #e94560;
+}
+
+#messages .info {
+    color: #4fc3f7;
+}
+
+/* Footer */
+footer {
+    font-size: 0.75rem;
+    color: #555;
+    text-align: center;
+}
+
+footer p {
+    margin-bottom: 4px;
+}
+
+/* Responsive */
+@media (max-width: 700px) {
+    #board {
+        grid-template-columns: repeat(4, 65px);
+        grid-template-rows: repeat(4, 65px);
+        padding: 5px;
+    }
+    .cell {
+        width: 65px;
+        height: 65px;
+    }
+    .player-info {
+        width: 80px;
+    }
+    #game-container {
+        gap: 15px;
+    }
+}
+
+@media (max-width: 500px) {
+    #game-container {
+        flex-direction: column;
+        gap: 10px;
+    }
+    .player-info {
+        width: 100%;
+        display: flex;
+        flex-direction: row;
+        gap: 10px;
+        justify-content: center;
+    }
+    #board {
+        grid-template-columns: repeat(4, 55px);
+        grid-template-rows: repeat(4, 55px);
+    }
+    .cell {
+        width: 55px;
+        height: 55px;
+    }
+}
