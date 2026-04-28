@@ -11,6 +11,16 @@ See [ROADMAP.md](ROADMAP.md) for what is coming next.
 
 ---
 
+## [2.3.0] - 2026-04-28
+
+### Changed
+- `cloneGameState` and `getEnumeratedNeutralOptions` helpers extracted; all three AI functions refactored to use them — `computeAIMoveHard` reduced from ~155 lines to ~90.
+- `animateLPieceTransition` rewritten as `async`; 4-level nested `setTimeout` callback chain replaced with `await sleep(...)`. `animateAndRender` is now `async` and `await`s the L-piece transition directly.
+- P2 pieces distinguished by a diagonal stripe (`repeating-linear-gradient`) in addition to colour — satisfies WCAG SC 1.4.1 for deuteranopia.
+- Board event listeners delegated to `this.boardEl` in the constructor; 48 per-cell listeners re-registered on every render replaced with 3 permanent handlers.
+
+---
+
 ## [2.2.0] - 2026-04-28
 
 ### Changed

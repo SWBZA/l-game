@@ -153,7 +153,7 @@ Update all class assignments in script.js to match.
 
 ## Tier 3 — Architectural improvements (40–90 min each)
 
-### ⬜ T3-1 · Extract AI helper functions
+### ✅ T3-1 · Extract AI helper functions
 **File:** `script.js` — AI section
 `computeAIMoveHard` is ~155 lines with cyclomatic complexity ~15.
 Extract two helpers:
@@ -162,7 +162,7 @@ Extract two helpers:
 This reduces `computeAIMoveHard` to ~90 readable lines where the minimax structure is visible.
 - **Senior dev signal:** The first thing any reviewer does is run a complexity check on the longest function
 
-### ⬜ T3-2 · Async/await animation sequence
+### ✅ T3-2 · Async/await animation sequence
 **File:** `script.js` — `animateLPieceTransition`
 Replace the 4-level nested `setTimeout` callback chain with:
 ```js
@@ -182,7 +182,7 @@ async animateLPieceTransition(oldCells, newCells, player) {
 Make `animateAndRender` async; replace the `callback` parameter with `await`.
 - **Senior dev signal:** Nested setTimeout is the textbook "callback hell" example; async/await is the canonical fix
 
-### ⬜ T3-3 · Colorblind-safe piece distinction
+### ✅ T3-3 · Colorblind-safe piece distinction
 **File:** `style.css`
 Red (#e94560) vs green (#0f8a5f) fails for deuteranopia (~5% of males).
 Add a secondary visual distinction to P2 pieces — either:
@@ -192,7 +192,7 @@ Note: the JS animation (`animateLPieceTransition`) sets `background` inline on o
 so those will need updating too for full consistency.
 - **Senior dev signal:** WCAG SC 1.4.1 — color cannot be the only visual means of conveying information
 
-### ⬜ T3-4 · Event delegation for board interactions
+### ✅ T3-4 · Event delegation for board interactions
 **File:** `script.js` — `renderBoard` and constructor
 Currently: 3 listeners per cell × 16 cells = 48 listeners re-registered on every `renderBoard()` call.
 Replace with 3 single delegated handlers on `this.boardEl` in the constructor:

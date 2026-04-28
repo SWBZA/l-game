@@ -13,6 +13,8 @@ const Difficulty = Object.freeze({ EASY: 'easy', MEDIUM: 'medium', HARD: 'hard' 
 /** Probability of accepting an equal-scored move to diversify AI play. */
 const AI_TIE_BREAK_PROB = 0.2;
 
+const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+
 // ─── L-Piece Orientation Utilities ───────────────────────────────
 
 function normalize(cells) {
@@ -350,6 +352,36 @@ class LGame {
 
 // ─── AI Opponent ─────────────────────────────────────────────────
 
+function cloneGameState({ board, playerData, neutrals }) {
+    return {
+        board: board.map(row => [...row]),
+        playerData: {
+            P1: { ...playerData.P1, cells: playerData.P1.cells.map(pair => [...pair]) },
+            P2: { ...playerData.P2, cells: playerData.P2.cells.map(pair => [...pair]) }
+        },
+        neutrals: {
+            N1: neutrals.N1 ? { ...neutrals.N1 } : null,
+            N2: neutrals.N2 ? { ...neutrals.N2 } : null
+        }
+    };
+}
+
+function getEnumeratedNeutralOptions(board, neutrals) {
+    const options = [{ type: 'skip' }];
+    for (const nid of ['N1', 'N2']) {
+        const pos = neutrals[nid];
+        if (!pos) continue;
+        for (let r = 0; r < BOARD_SIZE; r++) {
+            for (let c = 0; c < BOARD_SIZE; c++) {
+                if (board[r][c] === null || (board[r][c] === nid && r === pos.r && c === pos.c)) {
+                    options.push({ type: 'move', id: nid, r, c });
+                }
+            }
+        }
+    }
+    return options;
+}
+
 /**
  * Dispatcher — returns a move based on the selected difficulty.
  */
@@ -371,7 +403,6 @@ function computeAIMoveEasy(game) {
     // Pick a random L-piece placement
     const placement = placements[Math.floor(Math.random() * placements.length)];
 
-    // Build temporary board with this placement applied
     const boardClone = game.board.map(row => [...row]);
     for (const [r, c] of data.cells) {
         if (boardClone[r][c] === player) boardClone[r][c] = null;
@@ -380,22 +411,7 @@ function computeAIMoveEasy(game) {
         boardClone[r][c] = player;
     }
 
-    // Generate valid neutral options after this L placement
-    const neutralOptions = [{ type: 'skip' }];
-    for (const nid of ['N1', 'N2']) {
-        const pos = game.neutrals[nid];
-        if (!pos) continue;
-        if (boardClone[pos.r][pos.c] === nid) boardClone[pos.r][pos.c] = null;
-        for (let r = 0; r < BOARD_SIZE; r++) {
-            for (let c = 0; c < BOARD_SIZE; c++) {
-                if (boardClone[r][c] === null) {
-                    neutralOptions.push({ type: 'move', id: nid, r, c });
-                }
-            }
-        }
-        boardClone[pos.r][pos.c] = nid;
-    }
-
+    const neutralOptions = getEnumeratedNeutralOptions(boardClone, game.neutrals);
     const neutralAction = neutralOptions[Math.floor(Math.random() * neutralOptions.length)];
     return { placement, neutralAction };
 }
@@ -415,18 +431,8 @@ function computeAIMoveMedium(game) {
     let bestMove = null;
 
     for (const placement of placements) {
-        // Clone the relevant state for simulation
-        const boardClone = game.board.map(row => [...row]);
-        const pDataClone = {
-            P1: { ...game.playerData.P1, cells: game.playerData.P1.cells.map(pair => [...pair]) },
-            P2: { ...game.playerData.P2, cells: game.playerData.P2.cells.map(pair => [...pair]) }
-        };
-        const neutralClone = {
-            N1: { ...game.neutrals.N1 },
-            N2: { ...game.neutrals.N2 }
-        };
+        const { board: boardClone, playerData: pDataClone, neutrals: neutralClone } = cloneGameState(game);
 
-        // Apply L-piece placement
         for (const [r, c] of data.cells) {
             if (boardClone[r][c] === player) boardClone[r][c] = null;
         }
@@ -435,23 +441,7 @@ function computeAIMoveMedium(game) {
         }
         pDataClone[player].cells = placement.cells;
 
-        // Generate neutral options: skip, or move each neutral to any empty cell
-        const neutralOptions = [{ type: 'skip' }];
-        for (const nid of ['N1', 'N2']) {
-            const pos = neutralClone[nid];
-            if (!pos) continue;
-            if (boardClone[pos.r][pos.c] === nid) boardClone[pos.r][pos.c] = null;
-            for (let r = 0; r < BOARD_SIZE; r++) {
-                for (let c = 0; c < BOARD_SIZE; c++) {
-                    if (boardClone[r][c] === null) {
-                        neutralOptions.push({ type: 'move', id: nid, r, c });
-                    }
-                }
-            }
-            boardClone[pos.r][pos.c] = nid;
-        }
-
-        for (const nOpt of neutralOptions) {
+        for (const nOpt of getEnumeratedNeutralOptions(boardClone, neutralClone)) {
             const simBoard = boardClone.map(row => [...row]);
             const simNeutral = { N1: { ...neutralClone.N1 }, N2: { ...neutralClone.N2 } };
 
@@ -498,18 +488,8 @@ function computeAIMoveHard(game) {
     let bestMove = null;
 
     for (const placement of placements) {
-        // Clone state
-        const boardClone = game.board.map(row => [...row]);
-        const pDataClone = {
-            P1: { ...game.playerData.P1, cells: game.playerData.P1.cells.map(pair => [...pair]) },
-            P2: { ...game.playerData.P2, cells: game.playerData.P2.cells.map(pair => [...pair]) }
-        };
-        const neutralClone = {
-            N1: { ...game.neutrals.N1 },
-            N2: { ...game.neutrals.N2 }
-        };
+        const { board: boardClone, playerData: pDataClone, neutrals: neutralClone } = cloneGameState(game);
 
-        // Apply L-piece placement
         for (const [r, c] of data.cells) {
             if (boardClone[r][c] === player) boardClone[r][c] = null;
         }
@@ -518,23 +498,7 @@ function computeAIMoveHard(game) {
         }
         pDataClone[player].cells = placement.cells;
 
-        // Generate neutral options
-        const neutralOptions = [{ type: 'skip' }];
-        for (const nid of ['N1', 'N2']) {
-            const pos = neutralClone[nid];
-            if (!pos) continue;
-            if (boardClone[pos.r][pos.c] === nid) boardClone[pos.r][pos.c] = null;
-            for (let r = 0; r < BOARD_SIZE; r++) {
-                for (let c = 0; c < BOARD_SIZE; c++) {
-                    if (boardClone[r][c] === null) {
-                        neutralOptions.push({ type: 'move', id: nid, r, c });
-                    }
-                }
-            }
-            boardClone[pos.r][pos.c] = nid;
-        }
-
-        for (const nOpt of neutralOptions) {
+        for (const nOpt of getEnumeratedNeutralOptions(boardClone, neutralClone)) {
             // Apply AI's neutral option
             const simBoard = boardClone.map(row => [...row]);
             const simNeutral = { N1: { ...neutralClone.N1 }, N2: { ...neutralClone.N2 } };
@@ -568,17 +532,9 @@ function computeAIMoveHard(game) {
             let worstOutcomeForAI = Infinity;
 
             for (const oppPlacement of oppPlacements) {
-                const simBoard2 = simBoard.map(row => [...row]);
-                const pDataClone2 = {
-                    P1: { ...pDataClone.P1, cells: pDataClone.P1.cells.map(pair => [...pair]) },
-                    P2: { ...pDataClone.P2, cells: pDataClone.P2.cells.map(pair => [...pair]) }
-                };
-                const neutralClone2 = {
-                    N1: { ...simNeutral.N1 },
-                    N2: { ...simNeutral.N2 }
-                };
+                const { board: simBoard2, playerData: pDataClone2, neutrals: neutralClone2 } =
+                    cloneGameState({ board: simBoard, playerData: pDataClone, neutrals: simNeutral });
 
-                // Apply opponent L-piece
                 for (const [r, c] of oppCells) {
                     if (simBoard2[r][c] === opponent) simBoard2[r][c] = null;
                 }
@@ -587,25 +543,8 @@ function computeAIMoveHard(game) {
                 }
                 pDataClone2[opponent].cells = oppPlacement.cells;
 
-                // Generate opponent neutral options
-                const oppNeutralOptions = [{ type: 'skip' }];
-                for (const nid of ['N1', 'N2']) {
-                    const pos = neutralClone2[nid];
-                    if (!pos) continue;
-                    if (simBoard2[pos.r][pos.c] === nid) simBoard2[pos.r][pos.c] = null;
-                    for (let r = 0; r < BOARD_SIZE; r++) {
-                        for (let c = 0; c < BOARD_SIZE; c++) {
-                            if (simBoard2[r][c] === null) {
-                                oppNeutralOptions.push({ type: 'move', id: nid, r, c });
-                            }
-                        }
-                    }
-                    simBoard2[pos.r][pos.c] = nid;
-                }
-
-                // Find opponent's best neutral option (minimizes AI's future moves)
                 let bestOppOutcome = Infinity;
-                for (const oppNOpt of oppNeutralOptions) {
+                for (const oppNOpt of getEnumeratedNeutralOptions(simBoard2, neutralClone2)) {
                     const simBoard3 = simBoard2.map(row => [...row]);
                     const simNeutral3 = { ...neutralClone2 };
 
@@ -702,6 +641,7 @@ class LGameUI {
 
         // Hover state: the currently hovered placement object
         this.hoveredPlacement = null;
+        this._hoveredCellKey = null;
 
         // Animation state
         this.animating = false;
@@ -710,6 +650,25 @@ class LGameUI {
         // Overlay animation state
         this.overlayNewOnlyCells = null; // Set<"r,c"> — suppress these cells during overlay flight
         this.activeOverlay = null;
+
+        // Delegated board event listeners (registered once; survive renderBoard rebuilds)
+        this.boardEl.addEventListener('click', e => {
+            const cell = e.target.closest('.cell');
+            if (!cell) return;
+            this.handleCellClick(+cell.dataset.row, +cell.dataset.col);
+        });
+        this.boardEl.addEventListener('mouseover', e => {
+            const cell = e.target.closest('.cell');
+            const key = cell ? `${cell.dataset.row},${cell.dataset.col}` : null;
+            if (key === this._hoveredCellKey) return;
+            this._hoveredCellKey = key;
+            if (cell) this.handleCellHover(+cell.dataset.row, +cell.dataset.col);
+            else this.handleCellLeave();
+        });
+        this.boardEl.addEventListener('mouseleave', () => {
+            this._hoveredCellKey = null;
+            this.handleCellLeave();
+        });
 
         this.render();
         // Show first-move and difficulty groups if in AI mode
@@ -737,49 +696,37 @@ class LGameUI {
      * @param {object|null} newNeutral - new neutral position {r,c} or null
      * @param {function} callback - called after animation completes
      */
-    animateAndRender(oldLCells, newLCells, player, oldNeutral, newNeutral, callback) {
+    async animateAndRender(oldLCells, newLCells, player, oldNeutral, newNeutral, callback) {
         this.animating = true;
 
-        const doNeutralThenCallback = () => {
-            if (oldNeutral && newNeutral) {
-                this.animationState = { oldNeutral, newNeutral };
-                this.render();
-                setTimeout(() => {
-                    this.animating = false;
-                    this.animationState = null;
-                    if (callback) callback();
-                }, 600);
-            } else {
-                this.animating = false;
-                if (callback) callback();
-            }
-        };
-
         if (oldLCells && newLCells && player) {
-            this.animateLPieceTransition(oldLCells, newLCells, player, doNeutralThenCallback);
-        } else {
-            doNeutralThenCallback();
+            await this.animateLPieceTransition(oldLCells, newLCells, player);
         }
+
+        if (oldNeutral && newNeutral) {
+            this.animationState = { oldNeutral, newNeutral };
+            this.render();
+            await sleep(600);
+        }
+
+        this.animating = false;
+        this.animationState = null;
+        if (callback) callback();
     }
 
-    animateLPieceTransition(oldCells, newCells, player, callback) {
-        if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-            callback();
-            return;
-        }
+    async animateLPieceTransition(oldCells, newCells, player) {
+        if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
 
         const boardWrapper = this.boardEl.parentElement;
-        const color = player === 'P1' ? '#e94560' : '#0f8a5f';
+        const p2Stripe = 'repeating-linear-gradient(45deg,transparent 0,transparent 6px,rgba(0,0,0,0.18) 6px,rgba(0,0,0,0.18) 8px)';
+        const color = player === 'P1' ? '#e94560' : `${p2Stripe},#0f8a5f`;
 
-        // Render board with new state, but suppress cells that only appear in the new position
-        // so they stay empty while the overlay piece flies in from the old position
         const oldSet = new Set(oldCells.map(([r, c]) => `${r},${c}`));
         this.overlayNewOnlyCells = new Set(
             newCells.filter(([r, c]) => !oldSet.has(`${r},${c}`)).map(([r, c]) => `${r},${c}`)
         );
         this.render();
 
-        // Measure cell positions relative to board-wrapper after render
         const wRect = boardWrapper.getBoundingClientRect();
         const getCellRect = (r, c) => {
             const el = this.boardEl.querySelector(`[data-row="${r}"][data-col="${c}"]`);
@@ -791,7 +738,6 @@ class LGameUI {
         const oldRects = oldCells.map(([r, c]) => getCellRect(r, c));
         const newRects = newCells.map(([r, c]) => getCellRect(r, c));
 
-        // Match each old cell to its nearest new cell (greedy nearest-neighbour)
         const usedNew = new Set();
         const matched = oldRects.map(oRect => {
             if (!oRect) return 0;
@@ -807,7 +753,6 @@ class LGameUI {
             return bestJ;
         });
 
-        // Compute centroid movement for tilt
         const validOld = oldRects.filter(Boolean);
         const validNew = newRects.filter(Boolean);
         const oldCx = validOld.reduce((s, r) => s + r.x + r.w / 2, 0) / validOld.length;
@@ -817,7 +762,6 @@ class LGameUI {
         const travelDist = Math.hypot(newCx - oldCx, newCy - oldCy);
         const tiltDeg = travelDist > 10 ? ((newCx - oldCx) / travelDist) * 14 : 0;
 
-        // Build overlay
         const overlay = document.createElement('div');
         overlay.style.cssText = 'position:absolute;top:0;left:0;right:0;bottom:0;pointer-events:none;z-index:100;overflow:visible;';
         boardWrapper.appendChild(overlay);
@@ -826,7 +770,6 @@ class LGameUI {
         const LIFT = 11;
         const LIFT_MS = 140, FLY_MS = 330, STAMP_MS = 120, SETTLE_MS = 80;
 
-        // Create one absolutely-positioned div per old cell
         const cellAnims = oldRects.map((oRect, i) => {
             const nRect = (matched[i] != null && newRects[matched[i]]) ? newRects[matched[i]] : oRect;
             const tdx = nRect.x - oRect.x;
@@ -848,48 +791,42 @@ class LGameUI {
             return { el, tdx, tdy };
         });
 
-        // Phase 1 — Lift: piece rises off the board
-        requestAnimationFrame(() => {
-            cellAnims.forEach(({ el }) => {
-                el.style.transition = `transform ${LIFT_MS}ms cubic-bezier(0.4,0,0.6,1),filter ${LIFT_MS}ms ease,box-shadow ${LIFT_MS}ms ease`;
-                el.style.transform = `translateY(-${LIFT}px) scale(1.07)`;
-                el.style.filter = 'brightness(1.3)';
-                el.style.boxShadow = '0 16px 24px rgba(0,0,0,0.5),inset 0 -3px 0 rgba(0,0,0,0.2),inset 0 2px 0 rgba(255,255,255,0.2)';
-            });
-
-            // Phase 2 — Fly: each cell slides to its matched destination while still aloft
-            setTimeout(() => {
-                cellAnims.forEach(({ el, tdx, tdy }) => {
-                    el.style.transition = `transform ${FLY_MS}ms cubic-bezier(0.4,0,0.2,1),filter ${FLY_MS}ms ease`;
-                    el.style.transform = `translate(${tdx}px,${tdy - LIFT}px) scale(1.07) rotate(${tiltDeg}deg)`;
-                });
-
-                // Phase 3 — Stamp: land with downward momentum and upright
-                setTimeout(() => {
-                    cellAnims.forEach(({ el, tdx, tdy }) => {
-                        el.style.transition = `transform ${STAMP_MS}ms ease-in,filter ${STAMP_MS}ms ease,box-shadow ${STAMP_MS}ms ease`;
-                        el.style.transform = `translate(${tdx}px,${tdy + 4}px) scale(0.96) rotate(0deg)`;
-                        el.style.filter = 'brightness(1)';
-                        el.style.boxShadow = 'inset 0 -3px 0 rgba(0,0,0,0.2),inset 0 2px 0 rgba(255,255,255,0.15)';
-                    });
-
-                    // Phase 4 — Settle: spring to exact final position
-                    setTimeout(() => {
-                        cellAnims.forEach(({ el, tdx, tdy }) => {
-                            el.style.transition = `transform ${SETTLE_MS}ms cubic-bezier(0.34,1.56,0.64,1)`;
-                            el.style.transform = `translate(${tdx}px,${tdy}px) scale(1)`;
-                        });
-
-                        setTimeout(() => {
-                            this.overlayNewOnlyCells = null;
-                            this.activeOverlay = null;
-                            overlay.remove();
-                            callback();
-                        }, SETTLE_MS);
-                    }, STAMP_MS);
-                }, FLY_MS);
-            }, LIFT_MS);
+        // Phase 1 — Lift
+        await new Promise(resolve => requestAnimationFrame(resolve));
+        cellAnims.forEach(({ el }) => {
+            el.style.transition = `transform ${LIFT_MS}ms cubic-bezier(0.4,0,0.6,1),filter ${LIFT_MS}ms ease,box-shadow ${LIFT_MS}ms ease`;
+            el.style.transform = `translateY(-${LIFT}px) scale(1.07)`;
+            el.style.filter = 'brightness(1.3)';
+            el.style.boxShadow = '0 16px 24px rgba(0,0,0,0.5),inset 0 -3px 0 rgba(0,0,0,0.2),inset 0 2px 0 rgba(255,255,255,0.2)';
         });
+        await sleep(LIFT_MS);
+
+        // Phase 2 — Fly
+        cellAnims.forEach(({ el, tdx, tdy }) => {
+            el.style.transition = `transform ${FLY_MS}ms cubic-bezier(0.4,0,0.2,1),filter ${FLY_MS}ms ease`;
+            el.style.transform = `translate(${tdx}px,${tdy - LIFT}px) scale(1.07) rotate(${tiltDeg}deg)`;
+        });
+        await sleep(FLY_MS);
+
+        // Phase 3 — Stamp
+        cellAnims.forEach(({ el, tdx, tdy }) => {
+            el.style.transition = `transform ${STAMP_MS}ms ease-in,filter ${STAMP_MS}ms ease,box-shadow ${STAMP_MS}ms ease`;
+            el.style.transform = `translate(${tdx}px,${tdy + 4}px) scale(0.96) rotate(0deg)`;
+            el.style.filter = 'brightness(1)';
+            el.style.boxShadow = 'inset 0 -3px 0 rgba(0,0,0,0.2),inset 0 2px 0 rgba(255,255,255,0.15)';
+        });
+        await sleep(STAMP_MS);
+
+        // Phase 4 — Settle
+        cellAnims.forEach(({ el, tdx, tdy }) => {
+            el.style.transition = `transform ${SETTLE_MS}ms cubic-bezier(0.34,1.56,0.64,1)`;
+            el.style.transform = `translate(${tdx}px,${tdy}px) scale(1)`;
+        });
+        await sleep(SETTLE_MS);
+
+        this.overlayNewOnlyCells = null;
+        this.activeOverlay = null;
+        overlay.remove();
     }
 
     renderBoard() {
@@ -901,18 +838,9 @@ class LGameUI {
                 cell.dataset.row = r;
                 cell.dataset.col = c;
                 this.updateCellAppearance(cell, r, c);
-                cell.addEventListener('click', () => this.handleCellClick(r, c));
-                cell.addEventListener('mouseenter', () => this.handleCellHover(r, c));
-                cell.addEventListener('mouseleave', () => this.handleCellLeave());
                 this.boardEl.appendChild(cell);
             }
         }
-        // Board-level mouseleave: clear stale hover when mouse exits the board entirely
-        this.boardEl.addEventListener('mouseleave', () => {
-            if (this.hoveredPlacement) {
-                this.hoveredPlacement = null;
-            }
-        });
     }
 
     /**
