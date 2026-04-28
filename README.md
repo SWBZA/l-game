@@ -128,4 +128,4 @@ l-game/
 
 ## License
 
-This project is provided for educational and personal use. Edward de Bono's L-Game is a registered trademark of the de Bono family.
+The L-Game was invented by Edward de Bono and introduced in his book *The Five-Day Course in Thinking* (1967). This project is a non-commercial, educational implementation. No affiliation with the de Bono estate.
