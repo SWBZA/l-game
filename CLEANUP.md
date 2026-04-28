@@ -182,16 +182,6 @@ async animateLPieceTransition(oldCells, newCells, player) {
 Make `animateAndRender` async; replace the `callback` parameter with `await`.
 - **Senior dev signal:** Nested setTimeout is the textbook "callback hell" example; async/await is the canonical fix
 
-### ✅ T3-3 · Colorblind-safe piece distinction
-**File:** `style.css`
-Red (#e94560) vs green (#0f8a5f) fails for deuteranopia (~5% of males).
-Add a secondary visual distinction to P2 pieces — either:
-- A `repeating-linear-gradient` diagonal stripe overlaid on `.piece-p2` (pure CSS)
-- A `::before` pseudo-element symbol on `.piece-p2` cells
-Note: the JS animation (`animateLPieceTransition`) sets `background` inline on overlay pieces,
-so those will need updating too for full consistency.
-- **Senior dev signal:** WCAG SC 1.4.1 — color cannot be the only visual means of conveying information
-
 ### ✅ T3-4 · Event delegation for board interactions
 **File:** `script.js` — `renderBoard` and constructor
 Currently: 3 listeners per cell × 16 cells = 48 listeners re-registered on every `renderBoard()` call.

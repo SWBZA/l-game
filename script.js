@@ -718,8 +718,7 @@ class LGameUI {
         if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
 
         const boardWrapper = this.boardEl.parentElement;
-        const p2Stripe = 'repeating-linear-gradient(45deg,transparent 0,transparent 6px,rgba(0,0,0,0.18) 6px,rgba(0,0,0,0.18) 8px)';
-        const color = player === 'P1' ? '#e94560' : `${p2Stripe},#0f8a5f`;
+        const color = player === 'P1' ? '#e94560' : '#0f8a5f';
 
         const oldSet = new Set(oldCells.map(([r, c]) => `${r},${c}`));
         this.overlayNewOnlyCells = new Set(
