@@ -11,6 +11,18 @@ See [ROADMAP.md](ROADMAP.md) for what is coming next.
 
 ---
 
+## [2.1.0] - 2026-04-28
+
+### Changed
+- Script tag changed to `type="module"` — eliminates all global scope pollution; requires an HTTP server (e.g. `python3 -m http.server`).
+- CSS design tokens extracted into `:root` custom properties — all colours, cell sizes, and the piece shadow are now single-source variables.
+- Redundant `width`/`height` on `.cell` removed; grid tracks are the sole size authority.
+- `button:focus-visible` outline added — keyboard navigation now has a visible focus ring (WCAG 2.1 AA).
+- `@media (prefers-reduced-motion: reduce)` block added to CSS; `animateLPieceTransition` skips the overlay flight sequence for users who request reduced motion.
+- `aria-live="polite"` on player status elements and turn indicator; `aria-hidden` toggled on the game-result banner.
+
+---
+
 ## [2.0.0] - 2026-04-28
 
 ### Added

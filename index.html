@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="L-Game — a two-player abstract strategy game by Edward de Bono. Play against a friend or an AI at three difficulty levels.">
     <title>L-Game</title>
     <link rel="stylesheet" href="style.css">
 </head>
@@ -10,7 +11,7 @@
     <div id="app">
         <header>
             <h1>L-Game</h1>
-            <p class="subtitle">A two-player abstract strategy game by Edward de Bono &mdash; v2</p>
+            <p class="subtitle">A two-player abstract strategy game by Edward de Bono &mdash; v2.1</p>
         </header>
 
         <main>
@@ -20,7 +21,7 @@
                         <span class="piece-icon l-piece-p1"></span>
                         <span>Player 1</span>
                     </div>
-                    <div id="p1-status" class="player-status"></div>
+                    <div id="p1-status" class="player-status" aria-live="polite"></div>
                 </div>
 
                 <div id="board-wrapper">
@@ -32,7 +33,7 @@
                         <span class="piece-icon l-piece-p2"></span>
                         <span>Player 2</span>
                     </div>
-                    <div id="p2-status" class="player-status"></div>
+                    <div id="p2-status" class="player-status" aria-live="polite"></div>
                 </div>
             </div>
 
@@ -50,13 +51,13 @@
                     </div>
                 </div>
                 <div id="turn-info">
-                    <span id="turn-text">Player 1's turn</span>
+                    <span id="turn-text" aria-live="polite">Player 1's turn</span>
                     <span id="phase-text">Move your L-piece</span>
                 </div>
                 <button id="skip-neutral-btn" class="hidden">Skip Neutral Move</button>
             </div>
 
-            <div id="game-result" class="hidden">
+            <div id="game-result" class="hidden" aria-hidden="true">
                 <h2 id="winner-text"></h2>
                 <button id="new-game-btn">New Game</button>
             </div>
@@ -69,6 +70,6 @@
         </footer>
     </div>
 
-    <script src="script.js"></script>
+    <script type="module" src="script.js"></script>
 </body>
 </html>

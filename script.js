@@ -759,6 +759,11 @@ class LGameUI {
     }
 
     animateLPieceTransition(oldCells, newCells, player, callback) {
+        if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+            callback();
+            return;
+        }
+
         const boardWrapper = this.boardEl.parentElement;
         const color = player === 'P1' ? '#e94560' : '#0f8a5f';
 
@@ -1093,6 +1098,7 @@ class LGameUI {
         // Game result (below board)
         if (this.game.isGameOver()) {
             this.gameResult.classList.remove('hidden');
+            this.gameResult.setAttribute('aria-hidden', 'false');
             let winnerLabel;
             if (this.aiMode) {
                 // Human wins when (winner is P1 AND human is P1) OR (winner is P2 AND human is P2)
@@ -1106,6 +1112,7 @@ class LGameUI {
             this.winnerText.style.color = this.game.winner === 'P1' ? '#e94560' : '#0f8a5f';
         } else {
             this.gameResult.classList.add('hidden');
+            this.gameResult.setAttribute('aria-hidden', 'true');
         }
 
         // Footer hint
@@ -1396,6 +1403,4 @@ class LGameUI {
 }
 
 // ─── Initialize ──────────────────────────────────────────────────
-document.addEventListener('DOMContentLoaded', () => {
-    new LGameUI();
-});
+new LGameUI();
