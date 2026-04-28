@@ -1,0 +1,28 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Editor directories and files
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Local environment
+.env
+.env.local
+
+# Logs
+*.log
+npm-debug.log*
+
+# Dependency directories (for when a build step is added)
+node_modules/
+
+# Build output (for when a build step is added)
+dist/
+build/

@@ -1,8 +1,12 @@
 # L-Game
 
+![Version](https://img.shields.io/badge/version-2.0.0-blue)
+![License](https://img.shields.io/badge/license-MIT-green)
+![No build step](https://img.shields.io/badge/build-none-lightgrey)
+
 An interactive browser implementation of **Edward de Bono's L-Game** — an abstract two-player strategy game played on a 4×4 board. Play against an AI opponent with adjustable difficulty, or locally against another human.
 
-**[Play Now](https://swbza.github.io/l-game)** (open [`index.html`](index.html) in any browser)
+**[Play Now](https://swbza.github.io/l-game)** · [Changelog](CHANGELOG.md) · [Roadmap](ROADMAP.md)
 
 ---
 
@@ -16,7 +20,7 @@ Force your opponent into a position where they cannot make a legal L-piece move.
 
 - **4×4 board** with 4 cells per row (A–D) and column (1–4)
 - **2 L-shaped tetrominoes** (4 cells each) — one red (Player 1), one green (Player 2)
-- **2 neutral pieces** (small yellow circles) — one for each player
+- **2 neutral pieces** (small yellow circles)
 
 **Official starting position:**
 ```
@@ -41,7 +45,7 @@ Each turn consists of two phases:
 
 ### Winning
 
-A player wins when their opponent has **no legal L-piece move** available at the start of their turn. The game ends immediately; the final position remains visible on the board and the winner is announced below it.
+A player wins when their opponent has **no legal L-piece move** available at the start of their turn.
 
 ---
 
@@ -52,41 +56,34 @@ A player wins when their opponent has **no legal L-piece move** available at the
 | **AI Opponent** | Play against a computer opponent with three difficulty levels |
 | **Two-Player Mode** | Toggle to play locally against another human |
 | **First-Move Choice** | Choose whether you or the AI moves first |
-| **Hover Preview** | Hover over a cell to see all legal L-piece placements covering that cell. Repeated hover cycles through orientations. The destination shape is clearly visible over existing pieces. |
-| **Move Animations** | Ghost pieces fade out from the old position while new pieces animate into place |
+| **Hover Preview** | Hover over a cell to see all legal L-piece placements covering that cell. Repeated hover cycles through orientations. |
+| **Piece Animations** | Ghost pieces fade out from the old position while new pieces animate in |
 | **Official Starting Position** | Implements the standard interlocking starting layout |
-| **Dark Theme** | Clean dark UI with red (P1) and green (P2) color scheme |
+| **Dark Theme** | Clean dark UI with red (P1) and green (P2) colour scheme |
 
 ### AI Difficulty Levels
 
 | Level | Strategy | Description |
 |-------|----------|-------------|
 | **Easy** | Random | Picks a random legal move. Unpredictable and forgiving. |
-| **Medium** | One-ply heuristic | Evaluates each possible move by minimising the opponent's future mobility. Weighs opponent's legal L-move count heavily. |
-| **Hard** | Two-ply minimax | Simulates your best response to each candidate move, then picks the move that leaves the AI with the most remaining options (maximising its minimum future mobility). |
+| **Medium** | One-ply heuristic | Evaluates each possible move by minimising the opponent's future mobility. |
+| **Hard** | Two-ply minimax | Simulates your best response to each candidate move, then picks the move that leaves the AI with the most remaining options (~7 000 scenarios per move on the opening position). |
 
 ---
 
 ## Getting Started
 
 ### Play Online
-Visit the [GitHub Pages deployment](https://swbza.github.io/l-game) (if enabled).
+Visit **[swbza.github.io/l-game](https://swbza.github.io/l-game)** — no installation required.
 
 ### Run Locally
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/SWBZA/l-game.git
-   cd l-game
-   ```
-2. Start a local server (Python or Node):
-   ```bash
-   python3 -m http.server 8900
-   # or
-   npx serve .
-   ```
-3. Open `http://localhost:8900` in your browser.
-
-No build step required — the game is pure HTML, CSS, and JavaScript.
+```bash
+git clone https://github.com/SWBZA/l-game.git
+cd l-game
+python3 -m http.server 8900
+# or: npx serve .
+```
+Open `http://localhost:8900`. No build step — pure HTML, CSS, and JavaScript.
 
 ---
 
@@ -109,23 +106,35 @@ No build step required — the game is pure HTML, CSS, and JavaScript.
 
 ```
 l-game/
-├── index.html       # HTML structure and UI elements
-├── style.css        # Dark theme, animations, responsive layout (~546 lines)
-├── script.js        # Game engine, AI, UI logic (~1250 lines)
-├── spec.md          # Original game specification
-└── README.md        # This file
+├── index.html        # HTML structure and UI elements
+├── style.css         # Dark theme, animations, responsive layout
+├── script.js         # Game engine, AI, UI logic
+├── docs/
+│   └── spec.md       # Original game specification
+├── CHANGELOG.md      # Version history
+├── ROADMAP.md        # Planned milestones
+├── LICENSE           # MIT licence
+└── README.md         # This file
 ```
 
 ### Technical Details
 
 - **Board**: 4×4 2D array storing cell states (`null`, `'P1'`, `'P2'`, `'N1'`, `'N2'`)
 - **L-Piece Orientations**: 8 unique configurations generated by rotating and reflecting a base └ shape `[[0,0],[0,1],[1,0],[2,0]]`
-- **AI (Hard)**: Two-ply minimax search evaluating ~7,000 scenarios per move on the opening position
-- **Hover System**: Lightweight CSS-only DOM updates via `updateHoverDisplay()` to eliminate flickering; hover cycling via `_hoverCycle` map
-- **Animations**: CSS `@keyframes` for ghost fade-out (0.7s) and piece enter (0.55s)
+- **AI (Hard)**: Two-ply minimax search evaluating ~7 000 scenarios per move on the opening position
+- **Hover System**: CSS-only DOM updates via `updateHoverDisplay()` to eliminate flickering; hover cycling via `_hoverCycle` map
+- **Animations**: CSS `@keyframes` for ghost fade-out (0.7 s) and piece entry (0.55 s)
+
+---
+
+## Versioning
+
+This project uses [Semantic Versioning](https://semver.org/). All releases are tagged in git (`v1.0.0`, `v2.0.0`, …) and documented in [CHANGELOG.md](CHANGELOG.md). The [Roadmap](ROADMAP.md) tracks what is planned for upcoming versions.
 
 ---
 
 ## License
 
-The L-Game was invented by Edward de Bono and introduced in his book *The Five-Day Course in Thinking* (1967). This project is a non-commercial, educational implementation. No affiliation with the de Bono estate.
+MIT — see [LICENSE](LICENSE).
+
+The L-Game was invented by Edward de Bono and introduced in his book *The Five-Day Course in Thinking* (1967). This project is a non-commercial, educational implementation with no affiliation with the de Bono estate.
