@@ -703,6 +703,10 @@ class LGameUI {
         this.animating = false;
         this.animationState = null;
 
+        // Overlay animation state
+        this.overlayNewOnlyCells = null; // Set<"r,c"> — suppress these cells during overlay flight
+        this.activeOverlay = null;
+
         this.render();
         // Show first-move and difficulty groups if in AI mode
         if (this.firstMoveGroup) {
@@ -731,14 +735,152 @@ class LGameUI {
      */
     animateAndRender(oldLCells, newLCells, player, oldNeutral, newNeutral, callback) {
         this.animating = true;
-        this.animationState = { oldLCells, newLCells, player, oldNeutral, newNeutral };
+
+        const doNeutralThenCallback = () => {
+            if (oldNeutral && newNeutral) {
+                this.animationState = { oldNeutral, newNeutral };
+                this.render();
+                setTimeout(() => {
+                    this.animating = false;
+                    this.animationState = null;
+                    if (callback) callback();
+                }, 600);
+            } else {
+                this.animating = false;
+                if (callback) callback();
+            }
+        };
+
+        if (oldLCells && newLCells && player) {
+            this.animateLPieceTransition(oldLCells, newLCells, player, doNeutralThenCallback);
+        } else {
+            doNeutralThenCallback();
+        }
+    }
+
+    animateLPieceTransition(oldCells, newCells, player, callback) {
+        const boardWrapper = this.boardEl.parentElement;
+        const color = player === 'P1' ? '#e94560' : '#0f8a5f';
+
+        // Render board with new state, but suppress cells that only appear in the new position
+        // so they stay empty while the overlay piece flies in from the old position
+        const oldSet = new Set(oldCells.map(([r, c]) => `${r},${c}`));
+        this.overlayNewOnlyCells = new Set(
+            newCells.filter(([r, c]) => !oldSet.has(`${r},${c}`)).map(([r, c]) => `${r},${c}`)
+        );
         this.render();
 
-        setTimeout(() => {
-            this.animating = false;
-            this.animationState = null;
-            if (callback) callback();
-        }, 800);
+        // Measure cell positions relative to board-wrapper after render
+        const wRect = boardWrapper.getBoundingClientRect();
+        const getCellRect = (r, c) => {
+            const el = this.boardEl.querySelector(`[data-row="${r}"][data-col="${c}"]`);
+            if (!el) return null;
+            const rect = el.getBoundingClientRect();
+            return { x: rect.left - wRect.left, y: rect.top - wRect.top, w: rect.width, h: rect.height };
+        };
+
+        const oldRects = oldCells.map(([r, c]) => getCellRect(r, c));
+        const newRects = newCells.map(([r, c]) => getCellRect(r, c));
+
+        // Match each old cell to its nearest new cell (greedy nearest-neighbour)
+        const usedNew = new Set();
+        const matched = oldRects.map(oRect => {
+            if (!oRect) return 0;
+            const oc = { x: oRect.x + oRect.w / 2, y: oRect.y + oRect.h / 2 };
+            let bestDist = Infinity, bestJ = 0;
+            newRects.forEach((nRect, j) => {
+                if (usedNew.has(j) || !nRect) return;
+                const nc = { x: nRect.x + nRect.w / 2, y: nRect.y + nRect.h / 2 };
+                const d = Math.hypot(nc.x - oc.x, nc.y - oc.y);
+                if (d < bestDist) { bestDist = d; bestJ = j; }
+            });
+            usedNew.add(bestJ);
+            return bestJ;
+        });
+
+        // Compute centroid movement for tilt
+        const validOld = oldRects.filter(Boolean);
+        const validNew = newRects.filter(Boolean);
+        const oldCx = validOld.reduce((s, r) => s + r.x + r.w / 2, 0) / validOld.length;
+        const oldCy = validOld.reduce((s, r) => s + r.y + r.h / 2, 0) / validOld.length;
+        const newCx = validNew.reduce((s, r) => s + r.x + r.w / 2, 0) / validNew.length;
+        const newCy = validNew.reduce((s, r) => s + r.y + r.h / 2, 0) / validNew.length;
+        const travelDist = Math.hypot(newCx - oldCx, newCy - oldCy);
+        const tiltDeg = travelDist > 10 ? ((newCx - oldCx) / travelDist) * 14 : 0;
+
+        // Build overlay
+        const overlay = document.createElement('div');
+        overlay.style.cssText = 'position:absolute;top:0;left:0;right:0;bottom:0;pointer-events:none;z-index:100;overflow:visible;';
+        boardWrapper.appendChild(overlay);
+        this.activeOverlay = overlay;
+
+        const LIFT = 11;
+        const LIFT_MS = 140, FLY_MS = 330, STAMP_MS = 120, SETTLE_MS = 80;
+
+        // Create one absolutely-positioned div per old cell
+        const cellAnims = oldRects.map((oRect, i) => {
+            const nRect = (matched[i] != null && newRects[matched[i]]) ? newRects[matched[i]] : oRect;
+            const tdx = nRect.x - oRect.x;
+            const tdy = nRect.y - oRect.y;
+            const el = document.createElement('div');
+            el.style.cssText = [
+                `position:absolute`,
+                `left:${oRect.x}px`,
+                `top:${oRect.y}px`,
+                `width:${oRect.w}px`,
+                `height:${oRect.h}px`,
+                `background:${color}`,
+                `border-radius:6px`,
+                `box-shadow:inset 0 -3px 0 rgba(0,0,0,0.2),inset 0 2px 0 rgba(255,255,255,0.15)`,
+                `transform-origin:center center`,
+                `will-change:transform,filter,box-shadow`,
+            ].join(';');
+            overlay.appendChild(el);
+            return { el, tdx, tdy };
+        });
+
+        // Phase 1 — Lift: piece rises off the board
+        requestAnimationFrame(() => {
+            cellAnims.forEach(({ el }) => {
+                el.style.transition = `transform ${LIFT_MS}ms cubic-bezier(0.4,0,0.6,1),filter ${LIFT_MS}ms ease,box-shadow ${LIFT_MS}ms ease`;
+                el.style.transform = `translateY(-${LIFT}px) scale(1.07)`;
+                el.style.filter = 'brightness(1.3)';
+                el.style.boxShadow = '0 16px 24px rgba(0,0,0,0.5),inset 0 -3px 0 rgba(0,0,0,0.2),inset 0 2px 0 rgba(255,255,255,0.2)';
+            });
+
+            // Phase 2 — Fly: each cell slides to its matched destination while still aloft
+            setTimeout(() => {
+                cellAnims.forEach(({ el, tdx, tdy }) => {
+                    el.style.transition = `transform ${FLY_MS}ms cubic-bezier(0.4,0,0.2,1),filter ${FLY_MS}ms ease`;
+                    el.style.transform = `translate(${tdx}px,${tdy - LIFT}px) scale(1.07) rotate(${tiltDeg}deg)`;
+                });
+
+                // Phase 3 — Stamp: land with downward momentum and upright
+                setTimeout(() => {
+                    cellAnims.forEach(({ el, tdx, tdy }) => {
+                        el.style.transition = `transform ${STAMP_MS}ms ease-in,filter ${STAMP_MS}ms ease,box-shadow ${STAMP_MS}ms ease`;
+                        el.style.transform = `translate(${tdx}px,${tdy + 4}px) scale(0.96) rotate(0deg)`;
+                        el.style.filter = 'brightness(1)';
+                        el.style.boxShadow = 'inset 0 -3px 0 rgba(0,0,0,0.2),inset 0 2px 0 rgba(255,255,255,0.15)';
+                    });
+
+                    // Phase 4 — Settle: spring to exact final position
+                    setTimeout(() => {
+                        cellAnims.forEach(({ el, tdx, tdy }) => {
+                            el.style.transition = `transform ${SETTLE_MS}ms cubic-bezier(0.34,1.56,0.64,1)`;
+                            el.style.transform = `translate(${tdx}px,${tdy}px) scale(1)`;
+                        });
+
+                        setTimeout(() => {
+                            this.overlayNewOnlyCells = null;
+                            this.activeOverlay = null;
+                            overlay.remove();
+                            callback();
+                        }, SETTLE_MS);
+                    }, STAMP_MS);
+                }, FLY_MS);
+            }, LIFT_MS);
+        });
     }
 
     renderBoard() {
@@ -804,6 +946,11 @@ class LGameUI {
         cell.className = 'cell';
         cell.innerHTML = '';
 
+        // During an overlay flight, suppress cells that only exist at the NEW position —
+        // the overlay piece will fly in to cover them; revealing them early would ruin the effect.
+        const displayVal = (this.overlayNewOnlyCells && this.overlayNewOnlyCells.has(`${r},${c}`))
+            ? null : val;
+
         // Determine if this cell is part of the hovered placement
         const isHovered = this.hoveredPlacement !== null &&
             this.hoveredPlacement.cells.some(([pr, pc]) => pr === r && pc === c);
@@ -816,7 +963,7 @@ class LGameUI {
         const isOnlyOld = isOldLCell && !isNewLCell;
 
         // Piece rendering (hide pieces under hovered preview)
-        if (val === 'P1' && !isHovered) {
+        if (displayVal === 'P1' && !isHovered) {
             const piece = document.createElement('div');
             piece.className = 'piece piece-p1';
             // Add entering animation to new L-cells not previously occupied
@@ -825,7 +972,7 @@ class LGameUI {
             }
             cell.appendChild(piece);
             cell.classList.add('has-l-piece');
-        } else if (val === 'P2' && !isHovered) {
+        } else if (displayVal === 'P2' && !isHovered) {
             const piece = document.createElement('div');
             piece.className = 'piece piece-p2';
             if (anim && anim.newLCells && isNewLCell && !isOldLCell) {
@@ -833,7 +980,7 @@ class LGameUI {
             }
             cell.appendChild(piece);
             cell.classList.add('has-l-piece');
-        } else if (val === 'N1' || val === 'N2') {
+        } else if (displayVal === 'N1' || displayVal === 'N2') {
             if (!isHovered) {
                 const piece = document.createElement('div');
                 piece.className = 'piece piece-neutral';
@@ -1233,6 +1380,11 @@ class LGameUI {
     handleNewGame() {
         this.animating = false;
         this.animationState = null;
+        this.overlayNewOnlyCells = null;
+        if (this.activeOverlay) {
+            this.activeOverlay.remove();
+            this.activeOverlay = null;
+        }
         this.aiThinking = false;
         this.hoveredPlacement = null;
         this._hoverCycle = {};
