@@ -7,7 +7,21 @@ const BOARD_SIZE = 4;
 const CELLS = ['P1', 'P2', 'N1', 'N2'];
 const AI_DELAY_MS = 600;
 
+const Phase = Object.freeze({ L_MOVE: 'L_MOVE', NEUTRAL_MOVE: 'NEUTRAL_MOVE', GAME_OVER: 'GAME_OVER' });
+const Difficulty = Object.freeze({ EASY: 'easy', MEDIUM: 'medium', HARD: 'hard' });
+
+/** Probability of accepting an equal-scored move to diversify AI play. */
+const AI_TIE_BREAK_PROB = 0.2;
+
 // ─── L-Piece Orientation Utilities ───────────────────────────────
+
+function normalize(cells) {
+    const minR = Math.min(...cells.map(pair => pair[0]));
+    const minC = Math.min(...cells.map(pair => pair[1]));
+    const norm = cells.map(([r, c]) => [r - minR, c - minC]);
+    norm.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+    return norm;
+}
 
 /**
  * Generate all 8 unique L-tetromino orientations.
@@ -21,14 +35,6 @@ const AI_DELAY_MS = 600;
 function generateOrientations() {
     // Base └ shape: [row, col] relative to anchor (top-left of bounding box)
     const base = [[0, 0], [0, 1], [1, 0], [2, 0]];
-
-    function normalize(cells) {
-        const minR = Math.min(...cells.map(c => c[0]));
-        const minC = Math.min(...cells.map(c => c[1]));
-        const norm = cells.map(([r, c]) => [r - minR, c - minC]);
-        norm.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
-        return norm;
-    }
 
     function rotateCW(cells) {
         // (r,c) → (c, maxR - r) where maxR is max row in current shape
@@ -132,7 +138,7 @@ class LGame {
             N2: null
         };
         this.currentPlayer = 'P1';
-        this.phase = 'L_MOVE';    // 'L_MOVE' | 'NEUTRAL_MOVE' | 'GAME_OVER'
+        this.phase = Phase.L_MOVE;    // Phase.L_MOVE | Phase.NEUTRAL_MOVE | Phase.GAME_OVER
         this.winner = null;
         this.validPlacements = [];
         this.selectedNeutral = null; // 'N1' | 'N2' | null
@@ -186,7 +192,7 @@ class LGame {
         this.board[3][3] = 'N2';
 
         this.currentPlayer = 'P1';
-        this.phase = 'L_MOVE';
+        this.phase = Phase.L_MOVE;
         this.winner = null;
         this.selectedNeutral = null;
 
@@ -206,14 +212,14 @@ class LGame {
     /** Check if current player has any L-piece move; if not, game over */
     checkInitialWin() {
         if (this.validPlacements.length === 0) {
-            this.phase = 'GAME_OVER';
+            this.phase = Phase.GAME_OVER;
             this.winner = this.currentPlayer === 'P1' ? 'P2' : 'P1';
         }
     }
 
     /** Attempt to place the current player's L-piece at a given placement */
     placeLPiece(placement) {
-        if (this.phase !== 'L_MOVE') return false;
+        if (this.phase !== Phase.L_MOVE) return false;
 
         const data = this.playerData[this.currentPlayer];
         // Remove old cells
@@ -237,7 +243,7 @@ class LGame {
         this.moveCount++;
 
         // Transition to neutral move phase
-        this.phase = 'NEUTRAL_MOVE';
+        this.phase = Phase.NEUTRAL_MOVE;
         this.selectedNeutral = null;
         this.validNeutralDests = [];
         this.validPlacements = [];
@@ -269,7 +275,7 @@ class LGame {
 
     /** Select a neutral piece to move */
     selectNeutral(neutralId) {
-        if (this.phase !== 'NEUTRAL_MOVE') return false;
+        if (this.phase !== Phase.NEUTRAL_MOVE) return false;
         if (!this.getMovableNeutrals().includes(neutralId)) return false;
 
         this.selectedNeutral = neutralId;
@@ -279,7 +285,7 @@ class LGame {
 
     /** Place the selected neutral piece at a destination */
     placeNeutral(destR, destC) {
-        if (this.phase !== 'NEUTRAL_MOVE' || !this.selectedNeutral) return false;
+        if (this.phase !== Phase.NEUTRAL_MOVE || !this.selectedNeutral) return false;
 
         const valid = this.validNeutralDests.some(d => d.r === destR && d.c === destC);
         if (!valid) return false;
@@ -306,7 +312,7 @@ class LGame {
 
     /** Skip neutral move */
     skipNeutral() {
-        if (this.phase !== 'NEUTRAL_MOVE') return false;
+        if (this.phase !== Phase.NEUTRAL_MOVE) return false;
         this.selectedNeutral = null;
         this.validNeutralDests = [];
         this.endTurn();
@@ -316,7 +322,7 @@ class LGame {
     /** End current player's turn and switch */
     endTurn() {
         this.currentPlayer = this.currentPlayer === 'P1' ? 'P2' : 'P1';
-        this.phase = 'L_MOVE';
+        this.phase = Phase.L_MOVE;
         this.selectedNeutral = null;
         this.validNeutralDests = [];
 
@@ -331,7 +337,7 @@ class LGame {
 
     /** Check if game is over */
     isGameOver() {
-        return this.phase === 'GAME_OVER';
+        return this.phase === Phase.GAME_OVER;
     }
 
     /** Reset the game */
@@ -348,8 +354,8 @@ class LGame {
  * Dispatcher — returns a move based on the selected difficulty.
  */
 function computeAIMove(game, difficulty) {
-    if (difficulty === 'easy') return computeAIMoveEasy(game);
-    if (difficulty === 'hard') return computeAIMoveHard(game);
+    if (difficulty === Difficulty.EASY) return computeAIMoveEasy(game);
+    if (difficulty === Difficulty.HARD) return computeAIMoveHard(game);
     return computeAIMoveMedium(game); // default: medium
 }
 
@@ -396,8 +402,7 @@ function computeAIMoveEasy(game) {
 
 /**
  * Medium AI: one-ply lookahead evaluating opponent mobility.
- * For each L-piece placement + neutral option, count the opponent's
- * legal moves (lower = better) and own future moves (higher = better).
+ * Score = oppMoves * 1000 - ownMoves (lower = better); picks the minimum.
  */
 function computeAIMoveMedium(game) {
     const player = game.currentPlayer;
@@ -413,8 +418,8 @@ function computeAIMoveMedium(game) {
         // Clone the relevant state for simulation
         const boardClone = game.board.map(row => [...row]);
         const pDataClone = {
-            P1: { ...game.playerData.P1, cells: [...game.playerData.P1.cells] },
-            P2: { ...game.playerData.P2, cells: [...game.playerData.P2.cells] }
+            P1: { ...game.playerData.P1, cells: game.playerData.P1.cells.map(pair => [...pair]) },
+            P2: { ...game.playerData.P2, cells: game.playerData.P2.cells.map(pair => [...pair]) }
         };
         const neutralClone = {
             N1: { ...game.neutrals.N1 },
@@ -469,7 +474,7 @@ function computeAIMoveMedium(game) {
             const ownMoves = getAllValidPlacements(simBoard, player, placement.cells).length;
             const score = oppMoves * 1000 - ownMoves;
 
-            if (score < bestScore || (score === bestScore && Math.random() < 0.2)) {
+            if (score < bestScore || (score === bestScore && Math.random() < AI_TIE_BREAK_PROB)) {
                 bestScore = score;
                 bestMove = { placement, neutralAction: nOpt };
             }
@@ -480,10 +485,8 @@ function computeAIMoveMedium(game) {
 }
 
 /**
- * Hard AI: two-ply minimax.
- * For each of the AI's (L + neutral) moves, simulates the opponent's
- * best response, then evaluates how many legal moves the AI would have
- * left. Picks the move that maximizes the AI's minimum future mobility.
+ * Hard AI: two-ply minimax maximising the AI's minimum future mobility.
+ * Score = -min(opponent's best oppMoves) over all AI (L + neutral) choices.
  */
 function computeAIMoveHard(game) {
     const player = game.currentPlayer;
@@ -498,8 +501,8 @@ function computeAIMoveHard(game) {
         // Clone state
         const boardClone = game.board.map(row => [...row]);
         const pDataClone = {
-            P1: { ...game.playerData.P1, cells: [...game.playerData.P1.cells] },
-            P2: { ...game.playerData.P2, cells: [...game.playerData.P2.cells] }
+            P1: { ...game.playerData.P1, cells: game.playerData.P1.cells.map(pair => [...pair]) },
+            P2: { ...game.playerData.P2, cells: game.playerData.P2.cells.map(pair => [...pair]) }
         };
         const neutralClone = {
             N1: { ...game.neutrals.N1 },
@@ -554,7 +557,7 @@ function computeAIMoveHard(game) {
             if (oppPlacements.length === 0) {
                 // Opponent has no legal L moves → AI wins immediately
                 const score = 1000000;
-                if (score > bestScore || (score === bestScore && Math.random() < 0.2)) {
+                if (score > bestScore || (score === bestScore && Math.random() < AI_TIE_BREAK_PROB)) {
                     bestScore = score;
                     bestMove = { placement, neutralAction: nOpt };
                 }
@@ -567,8 +570,8 @@ function computeAIMoveHard(game) {
             for (const oppPlacement of oppPlacements) {
                 const simBoard2 = simBoard.map(row => [...row]);
                 const pDataClone2 = {
-                    P1: { ...pDataClone.P1, cells: [...pDataClone.P1.cells] },
-                    P2: { ...pDataClone.P2, cells: [...pDataClone.P2.cells] }
+                    P1: { ...pDataClone.P1, cells: pDataClone.P1.cells.map(pair => [...pair]) },
+                    P2: { ...pDataClone.P2, cells: pDataClone.P2.cells.map(pair => [...pair]) }
                 };
                 const neutralClone2 = {
                     N1: { ...simNeutral.N1 },
@@ -633,7 +636,7 @@ function computeAIMoveHard(game) {
             // Negate so higher score = more moves for AI
             const score = -worstOutcomeForAI;
 
-            if (score > bestScore || (score === bestScore && Math.random() < 0.2)) {
+            if (score > bestScore || (score === bestScore && Math.random() < AI_TIE_BREAK_PROB)) {
                 bestScore = score;
                 bestMove = { placement, neutralAction: nOpt };
             }
@@ -651,6 +654,7 @@ class LGameUI {
         this.aiMode = true;
         this.aiGoesFirst = false; // false = human is P1 (goes first), true = AI is P1
         this.aiThinking = false;
+        this._aiTimeoutId = null;
         this.boardEl = document.getElementById('board');
         this.turnText = document.getElementById('turn-text');
         this.phaseText = document.getElementById('phase-text');
@@ -669,7 +673,7 @@ class LGameUI {
         this.firstMoveGroup = document.getElementById('first-move-group');
 
         // Difficulty selector
-        this.difficulty = 'medium';
+        this.difficulty = Difficulty.MEDIUM;
         this.easyBtn = document.getElementById('easy-btn');
         this.mediumBtn = document.getElementById('medium-btn');
         this.hardBtn = document.getElementById('hard-btn');
@@ -687,13 +691,13 @@ class LGameUI {
             this.secondBtn.addEventListener('click', () => this.handleFirstMoveChoice(true));
         }
         if (this.easyBtn) {
-            this.easyBtn.addEventListener('click', () => this.handleDifficultyChoice('easy'));
+            this.easyBtn.addEventListener('click', () => this.handleDifficultyChoice(Difficulty.EASY));
         }
         if (this.mediumBtn) {
-            this.mediumBtn.addEventListener('click', () => this.handleDifficultyChoice('medium'));
+            this.mediumBtn.addEventListener('click', () => this.handleDifficultyChoice(Difficulty.MEDIUM));
         }
         if (this.hardBtn) {
-            this.hardBtn.addEventListener('click', () => this.handleDifficultyChoice('hard'));
+            this.hardBtn.addEventListener('click', () => this.handleDifficultyChoice(Difficulty.HARD));
         }
 
         // Hover state: the currently hovered placement object
@@ -912,7 +916,7 @@ class LGameUI {
     }
 
     /**
-     * Lightweight hover-only visual update — toggles .hovered-placement
+     * Lightweight hover-only visual update — toggles .is-hover-preview
      * and .hover-piece on existing cells WITHOUT rebuilding the DOM.
      * This avoids flickering caused by full renderBoard() on every hover change.
      */
@@ -928,13 +932,13 @@ class LGameUI {
                 this.hoveredPlacement.cells.some(([pr, pc]) => pr === r && pc === c);
 
             // Remove existing hover classes/elements
-            cell.classList.remove('hovered-placement');
+            cell.classList.remove('is-hover-preview');
             const existingHover = cell.querySelector('.hover-piece');
             if (existingHover) existingHover.remove();
 
             // Add hover preview if this cell is part of the current placement
-            if (isHovered && !this.game.isGameOver() && this.game.phase === 'L_MOVE') {
-                cell.classList.add('hovered-placement');
+            if (isHovered && !this.game.isGameOver() && this.game.phase === Phase.L_MOVE) {
+                cell.classList.add('is-hover-preview');
                 const hoverPiece = document.createElement('div');
                 hoverPiece.className = `hover-piece hover-${isP1 ? 'p1' : 'p2'}`;
                 cell.appendChild(hoverPiece);
@@ -1018,12 +1022,12 @@ class LGameUI {
         if (isGameOver) return;
 
         // L-piece phase: only show hover preview — no pre-highlighted squares
-        if (this.game.phase === 'L_MOVE') {
+        if (this.game.phase === Phase.L_MOVE) {
             const isP1 = this.game.currentPlayer === 'P1';
 
             // Hovered placement: draw full L-piece shape on all its cells
             if (isHovered) {
-                cell.classList.add('hovered-placement');
+                cell.classList.add('is-hover-preview');
                 const hoverPiece = document.createElement('div');
                 hoverPiece.className = `hover-piece hover-${isP1 ? 'p1' : 'p2'}`;
                 cell.appendChild(hoverPiece);
@@ -1031,21 +1035,21 @@ class LGameUI {
         }
 
         // Neutral phase: highlight clickable neutrals
-        if (this.game.phase === 'NEUTRAL_MOVE') {
+        if (this.game.phase === Phase.NEUTRAL_MOVE) {
             if (val === 'N1' || val === 'N2') {
                 if (this.game.getMovableNeutrals().includes(val)) {
-                    cell.classList.add('clickable-neutral');
+                    cell.classList.add('is-clickable-neutral');
                 }
             }
             // Highlight selected neutral
             if (this.game.selectedNeutral && val === this.game.selectedNeutral) {
-                cell.classList.add('selected-neutral');
+                cell.classList.add('is-selected-neutral');
             }
             // Valid neutral destinations
             if (this.game.selectedNeutral && val === null) {
                 const isValid = this.game.validNeutralDests.some(d => d.r === r && d.c === c);
                 if (isValid) {
-                    cell.classList.add('valid-neutral-dest');
+                    cell.classList.add('is-valid-dest');
                 }
             }
         }
@@ -1066,7 +1070,7 @@ class LGameUI {
             this.phaseText.textContent = 'Game Over';
         } else if (isAiTurn) {
             this.phaseText.textContent = 'Computer is calculating its move...';
-        } else if (this.game.phase === 'L_MOVE') {
+        } else if (this.game.phase === Phase.L_MOVE) {
             this.phaseText.textContent = 'Hover empty squares to preview, then click to place your L-piece';
         } else {
             this.phaseText.textContent = 'Move a neutral piece (click it) or skip';
@@ -1089,7 +1093,7 @@ class LGameUI {
         }
 
         // Skip button (hidden during AI thinking)
-        if (this.game.phase === 'NEUTRAL_MOVE' && !this.game.isGameOver() && !isAiTurn) {
+        if (this.game.phase === Phase.NEUTRAL_MOVE && !this.game.isGameOver() && !isAiTurn) {
             this.skipBtn.classList.remove('hidden');
         } else {
             this.skipBtn.classList.add('hidden');
@@ -1136,7 +1140,7 @@ class LGameUI {
         this.aiThinking = true;
         this.render();
 
-        setTimeout(() => {
+        this._aiTimeoutId = setTimeout(() => {
             this.executeAIMove();
         }, AI_DELAY_MS);
     }
@@ -1215,14 +1219,14 @@ class LGameUI {
     handleDifficultyChoice(level) {
         if (this.difficulty === level) return;
         this.difficulty = level;
-        if (this.easyBtn) this.easyBtn.classList.toggle('active', level === 'easy');
-        if (this.mediumBtn) this.mediumBtn.classList.toggle('active', level === 'medium');
-        if (this.hardBtn) this.hardBtn.classList.toggle('active', level === 'hard');
+        if (this.easyBtn) this.easyBtn.classList.toggle('active', level === Difficulty.EASY);
+        if (this.mediumBtn) this.mediumBtn.classList.toggle('active', level === Difficulty.MEDIUM);
+        if (this.hardBtn) this.hardBtn.classList.toggle('active', level === Difficulty.HARD);
         this.showMessage(`Difficulty set to ${level.charAt(0).toUpperCase() + level.slice(1)}`, 'info');
     }
 
     handleCellHover(r, c) {
-        if (this.animating || this.aiThinking || this.game.isGameOver() || this.game.phase !== 'L_MOVE') {
+        if (this.animating || this.aiThinking || this.game.isGameOver() || this.game.phase !== Phase.L_MOVE) {
             if (this.hoveredPlacement) {
                 this.hoveredPlacement = null;
                 this.updateHoverDisplay();
@@ -1276,7 +1280,7 @@ class LGameUI {
     handleCellClick(r, c) {
         if (this.animating || this.aiThinking || this.game.isGameOver()) return;
 
-        if (this.game.phase === 'L_MOVE') {
+        if (this.game.phase === Phase.L_MOVE) {
             // If we have a hovered placement, use it directly
             if (this.hoveredPlacement) {
                 const oldCells = this.game.playerData[this.game.currentPlayer].cells.map(c => [...c]);
@@ -1295,7 +1299,7 @@ class LGameUI {
             }
             this.handleLMoveClick(r, c);
             return;
-        } else if (this.game.phase === 'NEUTRAL_MOVE') {
+        } else if (this.game.phase === Phase.NEUTRAL_MOVE) {
             this.handleNeutralClick(r, c);
             return;
         }
@@ -1335,7 +1339,7 @@ class LGameUI {
         this.animateAndRender(oldCells, newCells, player, null, null, () => {
             this.showMessage('L-piece moved!', 'info');
             this.render();
-            if (this.game.isGameOver() || this.game.phase !== 'NEUTRAL_MOVE') {
+            if (this.game.isGameOver() || this.game.phase !== Phase.NEUTRAL_MOVE) {
                 this.triggerAIIfNeeded();
             }
         });
@@ -1376,7 +1380,7 @@ class LGameUI {
 
     handleSkip() {
         if (this.animating) return;
-        if (this.game.phase === 'NEUTRAL_MOVE') {
+        if (this.game.phase === Phase.NEUTRAL_MOVE) {
             this.game.skipNeutral();
             this.showMessage('Turn skipped', 'info');
             this.render();
@@ -1385,6 +1389,7 @@ class LGameUI {
     }
 
     handleNewGame() {
+        clearTimeout(this._aiTimeoutId);
         this.animating = false;
         this.animationState = null;
         this.overlayNewOnlyCells = null;

@@ -11,6 +11,19 @@ See [ROADMAP.md](ROADMAP.md) for what is coming next.
 
 ---
 
+## [2.2.0] - 2026-04-28
+
+### Changed
+- `Phase` and `Difficulty` frozen constant objects replace all bare string literals for phase/difficulty comparisons.
+- Shallow-clone latent bug fixed in AI simulation: inner `[r,c]` pairs are now deep-cloned with `.map(pair => [...pair])`.
+- Stale AI timeout cancelled on new game via `clearTimeout(this._aiTimeoutId)`.
+- `normalize()` hoisted to module scope; shadowing `c` variable renamed to `pair`.
+- `AI_TIE_BREAK_PROB = 0.2` constant replaces three `Math.random() < 0.2` literals; AI JSDoc updated with scoring formula.
+- `.btn` base class extracts shared button styles (`cursor`, `border-radius`, `font-weight`, `transition`, `text-transform`, `letter-spacing`); added to all five button elements.
+- Board-state CSS classes renamed to consistent `is-` prefix: `is-hover-preview`, `is-selected-neutral`, `is-valid-dest`, `is-clickable-neutral`.
+
+---
+
 ## [2.1.0] - 2026-04-28
 
 ### Changed

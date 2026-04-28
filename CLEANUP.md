@@ -79,7 +79,7 @@ button:focus-visible {
 
 ## Tier 2 — Code quality upgrades (10–30 min each)
 
-### ⬜ T2-1 · Phase / Difficulty constants
+### ✅ T2-1 · Phase / Difficulty constants
 **File:** `script.js` — after the existing constants block at the top
 Add:
 ```js
@@ -90,7 +90,7 @@ Then replace bare string comparisons: `=== 'L_MOVE'` → `=== Phase.L_MOVE`, `==
 The strings `'P1'`/`'P2'` are used as object keys and board cell values throughout — leave those as-is.
 - **Senior dev signal:** Magic strings at comparison sites signal "never refactored"
 
-### ⬜ T2-2 · Fix shallow-clone latent bug (AI functions)
+### ✅ T2-2 · Fix shallow-clone latent bug (AI functions)
 **File:** `script.js` — `computeAIMoveMedium` and `computeAIMoveHard`
 Current pattern (lines ~416, 417, 501, 502, 570, 571):
 ```js
@@ -104,21 +104,21 @@ The inner `[r, c]` pairs are currently shared references between the clone and t
 The bug hasn't fired because the simulation reads but doesn't write to inner pairs — but it's a live landmine.
 - **Senior dev signal:** A reviewer who traces the clone logic will spot this immediately
 
-### ⬜ T2-3 · Cancel stale AI timeout on new game
+### ✅ T2-3 · Cancel stale AI timeout on new game
 **File:** `script.js` — `LGameUI` constructor + `handleNewGame`
 - Constructor: add `this._aiTimeoutId = null`
 - Where `setTimeout` is called for AI: store as `this._aiTimeoutId = setTimeout(...)`
 - In `handleNewGame()`: add `clearTimeout(this._aiTimeoutId)` before resetting state
 - **Senior dev signal:** A timeout that fires after game reset is a classic lifecycle bug; storing the ID costs 3 lines
 
-### ⬜ T2-4 · Hoist `normalize()` out of `generateOrientations()`
+### ✅ T2-4 · Hoist `normalize()` out of `generateOrientations()`
 **File:** `script.js` line 25
 - Move `normalize` to module scope, above `generateOrientations()`
 - Rename the shadowing `c` parameter inside normalize (`cells.map(c => c[0])`) to `pair`
   (`c` is used as the column variable throughout the rest of the file — the shadow is confusing)
 - **Senior dev signal:** A function redefined inside a function that runs once = scope confusion
 
-### ⬜ T2-5 · Named AI tie-break constant + JSDoc on AI functions
+### ✅ T2-5 · Named AI tie-break constant + JSDoc on AI functions
 **File:** `script.js`
 ```js
 /** Probability of accepting an equal-scored move to diversify AI play. */
@@ -128,7 +128,7 @@ Replace the three `Math.random() < 0.2` literals (lines ~472, 557, 636) with `AI
 Add a one-line JSDoc to `computeAIMoveMedium` and `computeAIMoveHard` noting the scoring formula used.
 - **Senior dev signal:** Magic probability in AI code with no comment = "happened to work"
 
-### ⬜ T2-6 · Shared `.btn` base class in CSS
+### ✅ T2-6 · Shared `.btn` base class in CSS
 **File:** `style.css`
 Extract shared declarations from the 5 button selectors (`#mode-btn`, `.first-option`,
 `.diff-option`, `#skip-neutral-btn`, `#new-game-btn`) into a `.btn` base class:
@@ -137,7 +137,7 @@ Each specific selector then overrides only what differs (padding, font-size, col
 Also add `.btn` to each button element in `index.html`.
 - **Senior dev signal:** `cursor: pointer` copy-pasted 5 times = no CSS system thinking
 
-### ⬜ T2-7 · Consistent `is-` prefix for board-state classes
+### ✅ T2-7 · Consistent `is-` prefix for board-state classes
 **Files:** `style.css` + `script.js`
 Rename 4 classes to use consistent `is-` state prefix:
 | Old | New |

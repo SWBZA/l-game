@@ -11,7 +11,7 @@
     <div id="app">
         <header>
             <h1>L-Game</h1>
-            <p class="subtitle">A two-player abstract strategy game by Edward de Bono &mdash; v2.1</p>
+            <p class="subtitle">A two-player abstract strategy game by Edward de Bono &mdash; v2.2</p>
         </header>
 
         <main>
@@ -39,27 +39,27 @@
 
             <div id="controls">
                 <div id="mode-group">
-                    <button id="mode-btn" class="mode-toggle">vs AI</button>
+                    <button id="mode-btn" class="btn mode-toggle">vs AI</button>
                     <div id="first-move-group" class="hidden">
-                        <button id="first-btn" class="first-option active">You 1st</button>
-                        <button id="second-btn" class="first-option">AI 1st</button>
+                        <button id="first-btn" class="btn first-option active">You 1st</button>
+                        <button id="second-btn" class="btn first-option">AI 1st</button>
                     </div>
                     <div id="difficulty-group" class="hidden">
-                        <button id="easy-btn" class="diff-option">Easy</button>
-                        <button id="medium-btn" class="diff-option active">Medium</button>
-                        <button id="hard-btn" class="diff-option">Hard</button>
+                        <button id="easy-btn" class="btn diff-option">Easy</button>
+                        <button id="medium-btn" class="btn diff-option active">Medium</button>
+                        <button id="hard-btn" class="btn diff-option">Hard</button>
                     </div>
                 </div>
                 <div id="turn-info">
                     <span id="turn-text" aria-live="polite">Player 1's turn</span>
                     <span id="phase-text">Move your L-piece</span>
                 </div>
-                <button id="skip-neutral-btn" class="hidden">Skip Neutral Move</button>
+                <button id="skip-neutral-btn" class="btn hidden">Skip Neutral Move</button>
             </div>
 
             <div id="game-result" class="hidden" aria-hidden="true">
                 <h2 id="winner-text"></h2>
-                <button id="new-game-btn">New Game</button>
+                <button id="new-game-btn" class="btn">New Game</button>
             </div>
 
             <div id="messages"></div>
